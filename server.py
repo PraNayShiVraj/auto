@@ -57,7 +57,7 @@ _last_checked_date = None
 def _scheduler_loop():
     global _already_triggered_today, _last_checked_date
 
-    print(f"Scheduler thread started. Timezone={TIMEZONE}, slots={POST_TIMES}")
+    print(f"Scheduler thread started. Timezone={TIMEZONE}, slots={POST_TIMES}", flush=True)
     while True:
         try:
             now = datetime.now(TIMEZONE)
@@ -78,16 +78,16 @@ def _scheduler_loop():
                     norm_target = target_time
 
                 if hhmm == norm_target and slot not in _already_triggered_today:
-                    print(f"[{now.isoformat()}] Triggering slot {slot} ({target_time})")
+                    print(f"[{now.isoformat()}] Triggering slot {slot} ({target_time})", flush=True)
                     _already_triggered_today.add(slot)
                     try:
                         result = run_slot(slot)
-                        print(f"Slot {slot} result: {result}")
+                        print(f"Slot {slot} result: {result}", flush=True)
                     except Exception as e:
-                        print(f"Slot {slot} raised an exception: {e}")
+                        print(f"Slot {slot} raised an exception: {e}", flush=True)
         except Exception as loop_err:
             # Never let the scheduler thread die silently.
-            print(f"Scheduler loop error: {loop_err}")
+            print(f"Scheduler loop error: {loop_err}", flush=True)
 
         time.sleep(20)
 

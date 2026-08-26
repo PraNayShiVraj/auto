@@ -38,6 +38,8 @@ services:
         sync: false
       - key: SELF_PING_MINUTES
         value: "12"
+      - key: PYTHONUNBUFFERED
+        value: "1"
       # PUBLIC_BASE_URL is NOT needed — Render auto-provides
       # RENDER_EXTERNAL_URL for every web service, and poster.py /
       # the self-pinger fall back to that automatically.
