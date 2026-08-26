@@ -40,7 +40,7 @@ SELF_PING_MINUTES = int(os.environ.get("SELF_PING_MINUTES", "12"))
 # Slot number -> "HH:MM" (24hr, in TIMEZONE). Edit these to change your
 # posting times — no need to touch render.yaml or add cron jobs.
 POST_TIMES = {
-    1: "4:20",
+    1: "04:20",
     2: "18:00",
     3: "19:00",
     4: "20:00",
@@ -69,7 +69,15 @@ def _scheduler_loop():
                 _last_checked_date = date_key
 
             for slot, target_time in POST_TIMES.items():
-                if hhmm == target_time and slot not in _already_triggered_today:
+                # Normalize target_time to 2-digit HH:MM format (e.g. "4:20" -> "04:20")
+                # so single-digit hour strings match datetime.strftime("%H:%M")
+                try:
+                    h, m = target_time.split(":")
+                    norm_target = f"{int(h):02d}:{int(m):02d}"
+                except Exception:
+                    norm_target = target_time
+
+                if hhmm == norm_target and slot not in _already_triggered_today:
                     print(f"[{now.isoformat()}] Triggering slot {slot} ({target_time})")
                     _already_triggered_today.add(slot)
                     try:
