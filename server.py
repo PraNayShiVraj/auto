@@ -41,7 +41,7 @@ SELF_PING_MINUTES = int(os.environ.get("SELF_PING_MINUTES", "12"))
 # posting times — no need to touch render.yaml or add cron jobs.
 POST_TIMES = {
     1: "05:20",
-    2: "18:00",
+    2: "05:30",
     3: "19:00",
     4: "20:00",
 }
