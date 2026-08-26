@@ -103,10 +103,14 @@ def run_slot(slot: int):
         local_path = os.path.join(tmp, video_name)
         download_file(drive, video_id, local_path)
 
+        yt_err = None
+        ig_err = None
+
         try:
             yt_id = upload_video(local_path, title=caption, description=caption, tags=TAGS)
             print(f"Uploaded to YouTube: https://youtube.com/watch?v={yt_id}")
         except Exception as e:
+            yt_err = str(e)
             print(f"YouTube upload FAILED for slot {slot}: {e}", file=sys.stderr)
             yt_id = None
 
@@ -115,6 +119,7 @@ def run_slot(slot: int):
             ig_id = publish_reel(public_video_url, caption=ig_caption)
             print(f"Published to Instagram: media id {ig_id}")
         except Exception as e:
+            ig_err = str(e)
             print(f"Instagram publish FAILED for slot {slot}: {e}", file=sys.stderr)
             ig_id = None
 
@@ -124,7 +129,12 @@ def run_slot(slot: int):
         save_state(drive, FOLDER_ID, state)
     else:
         print(f"Both uploads failed for slot {slot}; state left unchanged so it can be retried.", file=sys.stderr)
-        return {"status": "failed"}
+        return {
+            "status": "failed",
+            "youtube_error": yt_err,
+            "instagram_error": ig_err,
+            "video": video_name,
+        }
 
     if yt_id and ig_id:
         try:
@@ -135,4 +145,11 @@ def run_slot(slot: int):
     else:
         print(f"Kept '{video_name}' in Drive since only one platform succeeded (yt={bool(yt_id)}, ig={bool(ig_id)}).")
 
-    return {"status": "posted", "youtube": bool(yt_id), "instagram": bool(ig_id), "video": video_name}
+    return {
+        "status": "posted",
+        "youtube": bool(yt_id),
+        "instagram": bool(ig_id),
+        "youtube_error": yt_err,
+        "instagram_error": ig_err,
+        "video": video_name,
+    }

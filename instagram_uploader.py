@@ -20,8 +20,12 @@ GRAPH_URL = f"https://graph.facebook.com/{GRAPH_VERSION}"
 
 
 def publish_reel(video_url: str, caption: str = "", max_wait_seconds: int = 300):
-    ig_user_id = os.environ["IG_USER_ID"]
-    access_token = os.environ["IG_ACCESS_TOKEN"]
+    ig_user_id = os.environ.get("IG_USER_ID")
+    access_token = os.environ.get("IG_ACCESS_TOKEN")
+
+    if not ig_user_id or not access_token:
+        print("IG credentials (IG_USER_ID / IG_ACCESS_TOKEN) not set. Skipping Instagram post.")
+        return None
 
     # Step 1: create a media container
     create_resp = requests.post(
