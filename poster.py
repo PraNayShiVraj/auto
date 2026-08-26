@@ -1,0 +1,138 @@
+"""
+The actual "post one video" logic. Used to live in publisher.py and run
+as 4 separate Render Cron Jobs. Now it's just a function called by the
+scheduler thread inside server.py — one service, one process.
+
+What run_slot(slot) does, each time it's called:
+  1. Looks at today's date (Asia/Kolkata by default). If this is the
+     first call today, it picks the NEXT 4 not-yet-ever-posted videos
+     from your Drive folder (sorted by filename) and locks them in as
+     "today's batch" — saved back into autopost_state.json in the same
+     Drive folder.
+  2. Takes the video for THIS slot number out of today's batch.
+  3. Downloads it, uploads it to YouTube, and tells Instagram to
+     publish it as a Reel (pulling the file from this same service's
+     /video/<id> endpoint).
+  4. Marks that slot as posted, so re-calls / retries never double-post.
+  5. Deletes the source file from Drive once BOTH platforms have it.
+"""
+import os
+import sys
+import tempfile
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from drive_utils import get_drive_service, list_videos, download_file, delete_file, load_state, save_state
+from youtube_uploader import upload_video
+from instagram_uploader import publish_reel
+
+TIMEZONE = ZoneInfo(os.environ.get("SCHEDULE_TIMEZONE", "Asia/Kolkata"))
+FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
+
+TAGS = ["anime", "manhwa"]
+
+
+def today_str():
+    return datetime.now(TIMEZONE).strftime("%Y-%m-%d")
+
+
+def _public_base_url():
+    # Render sets this automatically for every web service — no need to
+    # copy/paste your own URL into an env var like the old 5-service setup.
+    url = os.environ.get("PUBLIC_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+    if not url:
+        raise RuntimeError(
+            "Could not determine this service's public URL. Set PUBLIC_BASE_URL manually."
+        )
+    return url.rstrip("/")
+
+
+def build_todays_batch(drive, state):
+    """Picks the next 4 videos (by filename order) that have never been
+    posted before, across all days. Returns list of {"id","name"}.
+    """
+    all_videos = list_videos(drive, FOLDER_ID)
+    ever_posted = set(state.get("ever_posted_ids", []))
+    remaining = [v for v in all_videos if v["id"] not in ever_posted]
+
+    if len(remaining) < 4:
+        print(
+            f"WARNING: only {len(remaining)} unposted video(s) left in the Drive folder. "
+            "Add more videos soon or slots will be skipped."
+        )
+
+    return remaining[:4]
+
+
+def run_slot(slot: int):
+    """slot is 1, 2, 3, or 4. Safe to call more than once for the same
+    slot/day — it no-ops if that slot was already posted today."""
+    drive = get_drive_service()
+    state = load_state(drive, FOLDER_ID)
+
+    date_key = today_str()
+    if state.get("date") != date_key:
+        batch = build_todays_batch(drive, state)
+        state = {
+            "date": date_key,
+            "batch": [{"id": v["id"], "name": v["name"]} for v in batch],
+            "posted_slots": [],
+            "ever_posted_ids": state.get("ever_posted_ids", []),
+        }
+        save_state(drive, FOLDER_ID, state)
+        print(f"Started new batch for {date_key}: {[v['name'] for v in batch]}")
+
+    batch = state.get("batch", [])
+    if slot > len(batch):
+        print(f"No video queued for slot {slot} today (only {len(batch)} video(s) in today's batch). Skipping.")
+        return {"status": "skipped", "reason": "no video for this slot today"}
+
+    if slot in state.get("posted_slots", []):
+        print(f"Slot {slot} was already posted today. Skipping to avoid a duplicate post.")
+        return {"status": "already_posted"}
+
+    video_meta = batch[slot - 1]
+    video_id, video_name = video_meta["id"], video_meta["name"]
+    caption = os.path.splitext(video_name)[0].replace("_", " ").replace("-", " ")
+    hashtags = " ".join(f"#{t}" for t in TAGS)
+    ig_caption = f"{caption}\n\n{hashtags}"
+
+    print(f"Slot {slot}: posting '{video_name}' ({video_id})")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        local_path = os.path.join(tmp, video_name)
+        download_file(drive, video_id, local_path)
+
+        try:
+            yt_id = upload_video(local_path, title=caption, description=caption, tags=TAGS)
+            print(f"Uploaded to YouTube: https://youtube.com/watch?v={yt_id}")
+        except Exception as e:
+            print(f"YouTube upload FAILED for slot {slot}: {e}", file=sys.stderr)
+            yt_id = None
+
+        try:
+            public_video_url = f"{_public_base_url()}/video/{video_id}"
+            ig_id = publish_reel(public_video_url, caption=ig_caption)
+            print(f"Published to Instagram: media id {ig_id}")
+        except Exception as e:
+            print(f"Instagram publish FAILED for slot {slot}: {e}", file=sys.stderr)
+            ig_id = None
+
+    if yt_id or ig_id:
+        state.setdefault("posted_slots", []).append(slot)
+        state.setdefault("ever_posted_ids", []).append(video_id)
+        save_state(drive, FOLDER_ID, state)
+    else:
+        print(f"Both uploads failed for slot {slot}; state left unchanged so it can be retried.", file=sys.stderr)
+        return {"status": "failed"}
+
+    if yt_id and ig_id:
+        try:
+            delete_file(drive, video_id)
+            print(f"Deleted '{video_name}' from Drive (posted to both platforms).")
+        except Exception as e:
+            print(f"Posted successfully but failed to delete '{video_name}' from Drive: {e}", file=sys.stderr)
+    else:
+        print(f"Kept '{video_name}' in Drive since only one platform succeeded (yt={bool(yt_id)}, ig={bool(ig_id)}).")
+
+    return {"status": "posted", "youtube": bool(yt_id), "instagram": bool(ig_id), "video": video_name}

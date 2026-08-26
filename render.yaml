@@ -1,0 +1,43 @@
+# Render Blueprint — deploy via Render Dashboard -> New -> Blueprint,
+# pointed at this repo.
+#
+# Creates ONE web service, on Render's FREE plan, that:
+#   1. Serves the public video URL for Instagram to fetch from.
+#   2. Runs its own internal scheduler for all 4 daily posting slots
+#      (5pm/6pm/7pm/8pm IST by default — edit POST_TIMES in server.py).
+#   3. Self-pings its own /health endpoint every ~12 min so Render's
+#      free-plan idle spin-down never triggers, keeping the scheduler
+#      alive 24/7 at no cost. See the big comment at the top of
+#      server.py for details/caveats on this.
+#
+# No separate cron jobs, no duplicated env vars, no monthly bill.
+
+services:
+  - type: web
+    name: autopost-server
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --threads 4
+    envVars:
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REFRESH_TOKEN
+        sync: false
+      - key: DRIVE_FOLDER_ID
+        sync: false
+      - key: IG_USER_ID
+        sync: false
+      - key: IG_ACCESS_TOKEN
+        sync: false
+      - key: SCHEDULE_TIMEZONE
+        value: Asia/Kolkata
+      - key: RUN_SECRET
+        sync: false
+      - key: SELF_PING_MINUTES
+        value: "12"
+      # PUBLIC_BASE_URL is NOT needed — Render auto-provides
+      # RENDER_EXTERNAL_URL for every web service, and poster.py /
+      # the self-pinger fall back to that automatically.

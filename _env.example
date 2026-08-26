@@ -1,0 +1,14 @@
+# Copy this to .env for LOCAL testing only. On Render, set these as real
+# environment variables in the dashboard instead.
+
+# From get_google_token.py — same 3 values used for both Drive and YouTube.
+GOOGLE_OAUTH_CLIENT_ID=xxxxx.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=xxxxx
+GOOGLE_OAUTH_REFRESH_TOKEN=xxxxx
+
+DRIVE_FOLDER_ID=1AbCdEfGhIjKlMnOpQrStUvWxYz
+PUBLIC_BASE_URL=https://autopost-server.onrender.com
+SCHEDULE_TIMEZONE=Asia/Kolkata
+
+IG_USER_ID=1789xxxxxxxxxxx
+IG_ACCESS_TOKEN=xxxxx
