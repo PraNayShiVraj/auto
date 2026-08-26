@@ -28,12 +28,11 @@ def get_drive_service():
 
 
 def list_videos(service, folder_id):
-    """Returns all video files in the folder, sorted by name (001_x.mp4, 002_y.mp4, ...).
-
-    Sorting by filename means YOU control the posting order just by how
-    you name the files in Drive. Prefix them 01_, 02_, 03_... if you
-    want a specific sequence.
+    """Returns all video files in the folder, sorted naturally by name
+    (Part_1, Part_2 ... Part_10, Part_100).
     """
+    import re
+
     files = []
     page_token = None
     query = f"'{folder_id}' in parents and trashed = false and mimeType contains 'video/'"
@@ -53,6 +52,9 @@ def list_videos(service, folder_id):
         page_token = resp.get("nextPageToken")
         if not page_token:
             break
+
+    # Natural sort so numeric parts order correctly (Part_1 < Part_2 < Part_10 < Part_100)
+    files.sort(key=lambda f: [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', f.get("name", ""))])
     return files
 
 
