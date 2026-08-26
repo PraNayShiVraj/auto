@@ -22,7 +22,7 @@ import tempfile
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from drive_utils import get_drive_service, list_videos, download_file, delete_file, load_state, save_state
+from drive_utils import get_drive_service, list_videos, download_file, delete_file, load_state, save_state, _find_state_file
 from youtube_uploader import upload_video
 from instagram_uploader import publish_reel
 
@@ -30,6 +30,17 @@ TIMEZONE = ZoneInfo(os.environ.get("SCHEDULE_TIMEZONE", "Asia/Kolkata"))
 FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
 
 TAGS = ["anime", "manhwa"]
+
+
+def reset_state():
+    """Resets state in Drive so a fresh batch is generated using natural sorting."""
+    drive = get_drive_service()
+    file_id = _find_state_file(drive, FOLDER_ID)
+    if file_id:
+        delete_file(drive, file_id)
+        print("Reset state: deleted autopost_state.json from Drive.")
+        return {"status": "reset_successful", "message": "State reset. Next run will pick Part 1."}
+    return {"status": "reset_not_needed", "message": "No state file found."}
 
 
 def today_str():

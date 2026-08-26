@@ -29,7 +29,7 @@ import requests
 from flask import Flask, Response, abort
 
 from drive_utils import get_drive_service, get_file_stream
-from poster import run_slot
+from poster import run_slot, reset_state
 
 app = Flask(__name__)
 
@@ -140,6 +140,19 @@ def video(file_id):
         abort(404, description=str(e))
 
     return Response(stream.read(), mimetype="video/mp4")
+
+
+@app.route("/reset")
+def manual_reset():
+    secret = os.environ.get("RUN_SECRET")
+    from flask import request
+    if secret and request.args.get("key") != secret:
+        abort(403)
+
+    global _already_triggered_today
+    _already_triggered_today = set()
+    result = reset_state()
+    return result, 200
 
 
 @app.route("/run/<int:slot>")
