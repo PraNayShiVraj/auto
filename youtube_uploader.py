@@ -32,6 +32,8 @@ def upload_video(file_path, title, description="", tags=None, privacy_status="pu
             "description": description,
             "tags": tags or [],
             "categoryId": "24",  # Entertainment
+            "defaultAudioLanguage": "hi",  # Video language: Hindi
+            "defaultLanguage": "en",  # Title and description language: English
         },
         "status": {
             "privacyStatus": privacy_status,
@@ -51,7 +53,7 @@ def upload_video(file_path, title, description="", tags=None, privacy_status="pu
 
 
 def update_video_description(video_id: str, extra_text: str = ""):
-    """Appends extra_text (e.g. next/prev part links) to an existing YouTube video's description and ensures Category 24."""
+    """Appends extra_text to description, ensures Category 24, and sets Video language to Hindi & Title/Description to English."""
     try:
         service = get_youtube_service()
         resp = service.videos().list(part="snippet", id=video_id).execute()
@@ -70,8 +72,9 @@ def update_video_description(video_id: str, extra_text: str = ""):
                     new_lines.append(line_str)
 
         category_needed = (snippet.get("categoryId") != "24")
+        lang_needed = (snippet.get("defaultAudioLanguage") != "hi" or snippet.get("defaultLanguage") != "en")
 
-        if not new_lines and not category_needed:
+        if not new_lines and not category_needed and not lang_needed:
             return {"status": "already_up_to_date"}
 
         new_desc = current_desc
@@ -86,11 +89,13 @@ def update_video_description(video_id: str, extra_text: str = ""):
                 "description": new_desc,
                 "categoryId": "24",  # Entertainment
                 "tags": snippet.get("tags", []),
+                "defaultAudioLanguage": "hi",  # Video language: Hindi
+                "defaultLanguage": "en",  # Title and description language: English
             },
         }
         service.videos().update(part="snippet", body=body).execute()
-        print(f"Updated YouTube video {video_id} description/category. Extra: {extra_text}", flush=True)
-        return {"status": "updated", "category": "24 (Entertainment)", "added_text": extra_text}
+        print(f"Updated YouTube video {video_id} metadata (lang: hi/en, category: 24). Extra: {extra_text}", flush=True)
+        return {"status": "updated", "category": "24 (Entertainment)", "defaultAudioLanguage": "hi", "defaultLanguage": "en", "added_text": extra_text}
     except Exception as e:
         import sys
         print(f"Failed to update YouTube video {video_id}: {e}", file=sys.stderr, flush=True)
@@ -130,3 +135,14 @@ def get_my_uploaded_videos():
         import sys
         print(f"Error fetching channel videos: {e}", file=sys.stderr)
         return []
+
+
+def update_all_uploaded_videos_language():
+    """Fetches all channel uploaded videos and updates defaultAudioLanguage to 'hi' and defaultLanguage to 'en'."""
+    videos = get_my_uploaded_videos()
+    results = {}
+    for v in videos:
+        res = update_video_description(v["id"])
+        results[v["id"]] = {"title": v["title"], "result": res}
+    return {"status": "completed", "total_videos": len(videos), "results": results}
+

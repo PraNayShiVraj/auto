@@ -191,7 +191,7 @@ def manual_catchup():
 
 @app.route("/sync")
 def manual_sync():
-    """Scans YouTube channel videos, registers history, updates categories to Entertainment (24), and links prev/next parts."""
+    """Scans YouTube channel videos, registers history, updates categories to Entertainment (24), language settings, and links prev/next parts."""
     secret = os.environ.get("RUN_SECRET")
     from flask import request
     if secret and request.args.get("key") != secret:
@@ -199,6 +199,20 @@ def manual_sync():
 
     result = sync_uploaded_videos_history()
     return result, 200
+
+
+@app.route("/update-language")
+def manual_update_language():
+    """Bulk updates language settings (Video language = Hindi, Title/Description language = English) for all uploaded channel videos."""
+    secret = os.environ.get("RUN_SECRET")
+    from flask import request
+    if secret and request.args.get("key") != secret:
+        abort(403)
+
+    from youtube_uploader import update_all_uploaded_videos_language
+    result = update_all_uploaded_videos_language()
+    return result, 200
+
 
 
 @app.route("/run/<int:slot>")
