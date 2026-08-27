@@ -22,9 +22,21 @@ import tempfile
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import re
 from drive_utils import get_drive_service, list_videos, download_file, delete_file, load_state, save_state, _find_state_file
-from youtube_uploader import upload_video
+from youtube_uploader import upload_video, update_video_description
 from instagram_uploader import publish_reel
+
+
+def parse_part_number(filename: str):
+    """Extracts integer part number from filename (e.g. Part_2 -> 2)."""
+    m = re.search(r'part[_\s-]*(\d+)', filename, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+    m2 = re.search(r'\b(\d+)\b', filename)
+    if m2:
+        return int(m2.group(1))
+    return None
 
 TIMEZONE = ZoneInfo(os.environ.get("SCHEDULE_TIMEZONE", "Asia/Kolkata"))
 FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
@@ -108,6 +120,17 @@ def run_slot(slot: int):
     hashtags = " ".join(f"#{t}" for t in TAGS)
     ig_caption = f"{caption}\n\n{hashtags}"
 
+    part_num = parse_part_number(video_name)
+    part_history = state.get("part_history", {})
+    prev_yt_id = None
+    yt_description = caption
+
+    if part_num and part_num > 1:
+        prev_part_num = part_num - 1
+        prev_yt_id = part_history.get(str(prev_part_num))
+        if prev_yt_id:
+            yt_description = f"{caption}\n\n👈 Watch Part {prev_part_num}: https://youtube.com/watch?v={prev_yt_id}"
+
     print(f"Slot {slot}: posting '{video_name}' ({video_id})")
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -118,7 +141,7 @@ def run_slot(slot: int):
         ig_err = None
 
         try:
-            yt_id = upload_video(local_path, title=caption, description=caption, tags=TAGS)
+            yt_id = upload_video(local_path, title=caption, description=yt_description, tags=TAGS)
             print(f"Uploaded to YouTube: https://youtube.com/watch?v={yt_id}")
         except Exception as e:
             yt_err = str(e)
@@ -137,7 +160,17 @@ def run_slot(slot: int):
     if yt_id or ig_id:
         state.setdefault("posted_slots", []).append(slot)
         state.setdefault("ever_posted_ids", []).append(video_id)
+        if yt_id and part_num:
+            part_history[str(part_num)] = yt_id
+            state["part_history"] = part_history
         save_state(drive, FOLDER_ID, state)
+
+        # Update previous part's YouTube description to link forward to this new part!
+        if yt_id and prev_yt_id and part_num:
+            update_video_description(
+                prev_yt_id,
+                f"👉 Watch Next (Part {part_num}): https://youtube.com/watch?v={yt_id}"
+            )
     else:
         print(f"Both uploads failed for slot {slot}; state left unchanged so it can be retried.", file=sys.stderr)
         return {

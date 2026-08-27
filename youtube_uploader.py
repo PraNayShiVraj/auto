@@ -48,3 +48,36 @@ def upload_video(file_path, title, description="", tags=None, privacy_status="pu
             print(f"YouTube upload progress: {int(status.progress() * 100)}%")
 
     return response["id"]
+
+
+def update_video_description(video_id: str, extra_text: str):
+    """Appends extra_text (e.g. next part link) to an existing YouTube video's description."""
+    try:
+        service = get_youtube_service()
+        resp = service.videos().list(part="snippet,status", id=video_id).execute()
+        items = resp.get("items", [])
+        if not items:
+            return
+        video_data = items[0]
+        snippet = video_data["snippet"]
+        current_desc = snippet.get("description", "")
+
+        if extra_text in current_desc:
+            return
+
+        new_desc = f"{current_desc.strip()}\n\n{extra_text}".strip()
+        body = {
+            "id": video_id,
+            "snippet": {
+                "title": snippet["title"],
+                "description": new_desc,
+                "categoryId": snippet.get("categoryId", "24"),
+                "tags": snippet.get("tags", []),
+            },
+            "status": video_data.get("status", {}),
+        }
+        service.videos().update(part="snippet,status", body=body).execute()
+        print(f"Updated YouTube video {video_id} description with link: {extra_text}")
+    except Exception as e:
+        import sys
+        print(f"Failed to update YouTube video {video_id} description: {e}", file=sys.stderr)
