@@ -107,11 +107,26 @@ def run_slot(slot: int):
             "batch": [{"id": v["id"], "name": v["name"]} for v in batch],
             "posted_slots": [],
             "ever_posted_ids": state.get("ever_posted_ids", []),
+            "part_history": state.get("part_history", {}),
         }
         save_state(drive, FOLDER_ID, state)
         print(f"Started new batch for {date_key}: {[v['name'] for v in batch]}")
 
     batch = state.get("batch", [])
+    if slot > len(batch):
+        # Dynamically check if new videos were added to Drive mid-day
+        all_videos = list_videos(drive, FOLDER_ID)
+        ever_posted = set(state.get("ever_posted_ids", []))
+        batch_ids = {v["id"] for v in batch}
+        new_videos = [v for v in all_videos if v["id"] not in ever_posted and v["id"] not in batch_ids]
+        if new_videos:
+            needed = 10 - len(batch)
+            added = new_videos[:needed]
+            batch.extend([{"id": v["id"], "name": v["name"]} for v in added])
+            state["batch"] = batch
+            save_state(drive, FOLDER_ID, state)
+            print(f"Topped up today's batch with {len(added)} newly added video(s): {[v['name'] for v in added]}")
+
     if slot > len(batch):
         print(f"No video queued for slot {slot} today (only {len(batch)} video(s) in today's batch). Skipping.")
         return {"status": "skipped", "reason": "no video for this slot today"}
