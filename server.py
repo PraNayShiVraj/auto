@@ -40,10 +40,16 @@ SELF_PING_MINUTES = int(os.environ.get("SELF_PING_MINUTES", "12"))
 # Slot number -> "HH:MM" (24hr, in TIMEZONE). Edit these to change your
 # posting times — no need to touch render.yaml or add cron jobs.
 POST_TIMES = {
-    1: "17:00",
-    2: "18:00",
-    3: "19:00",
-    4: "20:00",
+    1: "07:00",   # 7:00 AM
+    2: "08:00",   # 8:00 AM
+    3: "09:00",   # 9:00 AM
+    4: "12:00",   # 12:00 PM (Noon)
+    5: "13:00",   # 1:00 PM
+    6: "14:00",   # 2:00 PM
+    7: "18:00",   # 6:00 PM
+    8: "19:00",   # 7:00 PM
+    9: "20:00",   # 8:00 PM
+    10: "21:00",  # 9:00 PM
 }
 
 # In-memory guard so the same slot doesn't get triggered twice within

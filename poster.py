@@ -58,32 +58,32 @@ def _public_base_url():
     return url.rstrip("/")
 
 
-def build_todays_batch(drive, state):
-    """Picks the next 4 videos (by filename order) that have never been
+def build_todays_batch(drive, state, slot_count=10):
+    """Picks the next N videos (by filename order) that have never been
     posted before, across all days. Returns list of {"id","name"}.
     """
     all_videos = list_videos(drive, FOLDER_ID)
     ever_posted = set(state.get("ever_posted_ids", []))
     remaining = [v for v in all_videos if v["id"] not in ever_posted]
 
-    if len(remaining) < 4:
+    if len(remaining) < slot_count:
         print(
             f"WARNING: only {len(remaining)} unposted video(s) left in the Drive folder. "
             "Add more videos soon or slots will be skipped."
         )
 
-    return remaining[:4]
+    return remaining[:slot_count]
 
 
 def run_slot(slot: int):
-    """slot is 1, 2, 3, or 4. Safe to call more than once for the same
+    """slot is 1..10. Safe to call more than once for the same
     slot/day — it no-ops if that slot was already posted today."""
     drive = get_drive_service()
     state = load_state(drive, FOLDER_ID)
 
     date_key = today_str()
     if state.get("date") != date_key:
-        batch = build_todays_batch(drive, state)
+        batch = build_todays_batch(drive, state, slot_count=10)
         state = {
             "date": date_key,
             "batch": [{"id": v["id"], "name": v["name"]} for v in batch],
