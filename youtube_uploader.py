@@ -31,7 +31,7 @@ def upload_video(file_path, title, description="", tags=None, privacy_status="pu
             "title": title[:100],
             "description": description,
             "tags": tags or [],
-            "categoryId": "22",  # People & Blogs; change if you want
+            "categoryId": "24",  # Entertainment
         },
         "status": {
             "privacyStatus": privacy_status,
