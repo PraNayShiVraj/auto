@@ -29,7 +29,7 @@ import requests
 from flask import Flask, Response, abort
 
 from drive_utils import get_drive_service, get_file_stream
-from poster import run_slot, reset_state
+from poster import run_slot, reset_state, sync_uploaded_videos_history
 
 app = Flask(__name__)
 
@@ -187,6 +187,18 @@ def manual_catchup():
             results[f"slot_{slot}_({target_time})"] = res
 
     return {"status": "catchup_completed", "current_time": hhmm, "results": results}, 200
+
+
+@app.route("/sync")
+def manual_sync():
+    """Scans YouTube channel videos, registers history, updates categories to Entertainment (24), and links prev/next parts."""
+    secret = os.environ.get("RUN_SECRET")
+    from flask import request
+    if secret and request.args.get("key") != secret:
+        abort(403)
+
+    result = sync_uploaded_videos_history()
+    return result, 200
 
 
 @app.route("/run/<int:slot>")

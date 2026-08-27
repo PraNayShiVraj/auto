@@ -198,3 +198,51 @@ def run_slot(slot: int):
         "instagram_error": ig_err,
         "video": video_name,
     }
+
+
+def sync_uploaded_videos_history():
+    """Scans channel videos, registers their part numbers in part_history,
+    updates categories to Entertainment (24), and links prev/next parts.
+    """
+    from youtube_uploader import get_my_uploaded_videos, update_video_description
+    drive = get_drive_service()
+    state = load_state(drive, FOLDER_ID)
+    part_history = state.get("part_history", {})
+
+    uploaded_videos = get_my_uploaded_videos()
+    parsed_parts = {}
+
+    for v in uploaded_videos:
+        part_num = parse_part_number(v["title"])
+        if part_num:
+            parsed_parts[part_num] = v
+            part_history[str(part_num)] = v["id"]
+
+    state["part_history"] = part_history
+    save_state(drive, FOLDER_ID, state)
+
+    # Link prev/next parts and ensure Category 24 on YouTube
+    sorted_parts = sorted(parsed_parts.keys())
+    for p in sorted_parts:
+        curr_video = parsed_parts[p]
+        curr_id = curr_video["id"]
+
+        if p > 1 and (p - 1) in parsed_parts:
+            prev_video = parsed_parts[p - 1]
+            update_video_description(
+                curr_id,
+                f"👈 Watch Part {p - 1}: https://youtube.com/watch?v={prev_video['id']}"
+            )
+
+        if (p + 1) in parsed_parts:
+            next_video = parsed_parts[p + 1]
+            update_video_description(
+                curr_id,
+                f"👉 Watch Next (Part {p + 1}): https://youtube.com/watch?v={next_video['id']}"
+            )
+
+    return {
+        "status": "sync_completed",
+        "synced_parts": sorted_parts,
+        "part_history": part_history
+    }

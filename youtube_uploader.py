@@ -81,3 +81,38 @@ def update_video_description(video_id: str, extra_text: str):
     except Exception as e:
         import sys
         print(f"Failed to update YouTube video {video_id} description: {e}", file=sys.stderr)
+
+
+def get_my_uploaded_videos():
+    """Returns a list of {"id": video_id, "title": title, "description": desc} for videos on the channel."""
+    try:
+        service = get_youtube_service()
+        channels_resp = service.channels().list(mine=True, part="contentDetails").execute()
+        items = channels_resp.get("items", [])
+        if not items:
+            return []
+        uploads_playlist_id = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+        videos = []
+        page_token = None
+        while True:
+            playlist_resp = service.playlistItems().list(
+                playlistId=uploads_playlist_id,
+                part="snippet",
+                maxResults=50,
+                pageToken=page_token
+            ).execute()
+            for item in playlist_resp.get("items", []):
+                snippet = item["snippet"]
+                vid_id = snippet["resourceId"]["videoId"]
+                title = snippet["title"]
+                desc = snippet.get("description", "")
+                videos.append({"id": vid_id, "title": title, "description": desc})
+            page_token = playlist_resp.get("nextPageToken")
+            if not page_token or len(videos) >= 100:
+                break
+        return videos
+    except Exception as e:
+        import sys
+        print(f"Error fetching channel videos: {e}", file=sys.stderr)
+        return []
