@@ -29,13 +29,19 @@ from instagram_uploader import publish_reel
 
 
 def parse_part_number(filename: str):
-    """Extracts integer part number from filename (e.g. Part_2 -> 2)."""
-    m = re.search(r'part[_\s-]*(\d+)', filename, re.IGNORECASE)
+    """Extracts integer part number specifically from Part_X, Pt_X, P_X or leading 01_ prefixes."""
+    if not filename:
+        return None
+    # Match explicit Part/Pt/P prefix e.g. Part_3, Part 3, Pt-3, P3
+    m = re.search(r'\b(?:part|pt|p)[_\s-]*(\d+)\b', filename, re.IGNORECASE)
     if m:
         return int(m.group(1))
-    m2 = re.search(r'\b(\d+)\b', filename)
+
+    # Match starting numeric prefix e.g. 03_video.mp4 or 3_video.mp4
+    m2 = re.search(r'^(?:0*)(\d+)[_\s-]+', filename)
     if m2:
         return int(m2.group(1))
+
     return None
 
 TIMEZONE = ZoneInfo(os.environ.get("SCHEDULE_TIMEZONE", "Asia/Kolkata"))
