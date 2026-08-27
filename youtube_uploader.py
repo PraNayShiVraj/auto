@@ -51,7 +51,7 @@ def upload_video(file_path, title, description="", tags=None, privacy_status="pu
 
 
 def update_video_description(video_id: str, extra_text: str):
-    """Appends extra_text (e.g. next part link) to an existing YouTube video's description."""
+    """Appends extra_text (e.g. next/prev part links) to an existing YouTube video's description and ensures Category 24."""
     try:
         service = get_youtube_service()
         resp = service.videos().list(part="snippet,status", id=video_id).execute()
@@ -62,10 +62,22 @@ def update_video_description(video_id: str, extra_text: str):
         snippet = video_data["snippet"]
         current_desc = snippet.get("description", "")
 
-        if extra_text in current_desc:
+        new_lines = []
+        for line in extra_text.split("\n\n"):
+            line_str = line.strip()
+            if line_str and line_str not in current_desc:
+                new_lines.append(line_str)
+
+        category_needed = (snippet.get("categoryId") != "24")
+
+        if not new_lines and not category_needed:
             return
 
-        new_desc = f"{current_desc.strip()}\n\n{extra_text}".strip()
+        new_desc = current_desc
+        if new_lines:
+            added_text = "\n\n".join(new_lines)
+            new_desc = f"{current_desc.strip()}\n\n{added_text}".strip()
+
         body = {
             "id": video_id,
             "snippet": {
@@ -77,10 +89,10 @@ def update_video_description(video_id: str, extra_text: str):
             "status": video_data.get("status", {}),
         }
         service.videos().update(part="snippet,status", body=body).execute()
-        print(f"Updated YouTube video {video_id} description with link: {extra_text}")
+        print(f"Updated YouTube video {video_id} description/category. Extra: {extra_text}")
     except Exception as e:
         import sys
-        print(f"Failed to update YouTube video {video_id} description: {e}", file=sys.stderr)
+        print(f"Failed to update YouTube video {video_id}: {e}", file=sys.stderr)
 
 
 def get_my_uploaded_videos():

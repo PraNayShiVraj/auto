@@ -226,20 +226,18 @@ def sync_uploaded_videos_history():
     for p in sorted_parts:
         curr_video = parsed_parts[p]
         curr_id = curr_video["id"]
+        extra_lines = []
 
         if p > 1 and (p - 1) in parsed_parts:
             prev_video = parsed_parts[p - 1]
-            update_video_description(
-                curr_id,
-                f"👈 Watch Part {p - 1}: https://youtube.com/watch?v={prev_video['id']}"
-            )
+            extra_lines.append(f"👈 Watch Part {p - 1}: https://youtube.com/watch?v={prev_video['id']}")
 
         if (p + 1) in parsed_parts:
             next_video = parsed_parts[p + 1]
-            update_video_description(
-                curr_id,
-                f"👉 Watch Next (Part {p + 1}): https://youtube.com/watch?v={next_video['id']}"
-            )
+            extra_lines.append(f"👉 Watch Next (Part {p + 1}): https://youtube.com/watch?v={next_video['id']}")
+
+        extra_text = "\n\n".join(extra_lines) if extra_lines else ""
+        update_video_description(curr_id, extra_text)
 
     return {
         "status": "sync_completed",
