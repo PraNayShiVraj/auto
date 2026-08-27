@@ -223,6 +223,8 @@ def sync_uploaded_videos_history():
 
     # Link prev/next parts and ensure Category 24 on YouTube
     sorted_parts = sorted(parsed_parts.keys())
+    results = {}
+
     for p in sorted_parts:
         curr_video = parsed_parts[p]
         curr_id = curr_video["id"]
@@ -237,10 +239,16 @@ def sync_uploaded_videos_history():
             extra_lines.append(f"👉 Watch Next (Part {p + 1}): https://youtube.com/watch?v={next_video['id']}")
 
         extra_text = "\n\n".join(extra_lines) if extra_lines else ""
-        update_video_description(curr_id, extra_text)
+        res = update_video_description(curr_id, extra_text)
+        results[f"part_{p}"] = {
+            "id": curr_id,
+            "title": curr_video["title"],
+            "update_result": res
+        }
 
     return {
         "status": "sync_completed",
         "synced_parts": sorted_parts,
+        "results": results,
         "part_history": part_history
     }

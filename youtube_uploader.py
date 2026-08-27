@@ -50,28 +50,29 @@ def upload_video(file_path, title, description="", tags=None, privacy_status="pu
     return response["id"]
 
 
-def update_video_description(video_id: str, extra_text: str):
+def update_video_description(video_id: str, extra_text: str = ""):
     """Appends extra_text (e.g. next/prev part links) to an existing YouTube video's description and ensures Category 24."""
     try:
         service = get_youtube_service()
-        resp = service.videos().list(part="snippet,status", id=video_id).execute()
+        resp = service.videos().list(part="snippet", id=video_id).execute()
         items = resp.get("items", [])
         if not items:
-            return
+            return {"status": "not_found"}
         video_data = items[0]
         snippet = video_data["snippet"]
         current_desc = snippet.get("description", "")
 
         new_lines = []
-        for line in extra_text.split("\n\n"):
-            line_str = line.strip()
-            if line_str and line_str not in current_desc:
-                new_lines.append(line_str)
+        if extra_text:
+            for line in extra_text.split("\n\n"):
+                line_str = line.strip()
+                if line_str and line_str not in current_desc:
+                    new_lines.append(line_str)
 
         category_needed = (snippet.get("categoryId") != "24")
 
         if not new_lines and not category_needed:
-            return
+            return {"status": "already_up_to_date"}
 
         new_desc = current_desc
         if new_lines:
@@ -86,13 +87,14 @@ def update_video_description(video_id: str, extra_text: str):
                 "categoryId": "24",  # Entertainment
                 "tags": snippet.get("tags", []),
             },
-            "status": video_data.get("status", {}),
         }
-        service.videos().update(part="snippet,status", body=body).execute()
-        print(f"Updated YouTube video {video_id} description/category. Extra: {extra_text}")
+        service.videos().update(part="snippet", body=body).execute()
+        print(f"Updated YouTube video {video_id} description/category. Extra: {extra_text}", flush=True)
+        return {"status": "updated", "category": "24 (Entertainment)", "added_text": extra_text}
     except Exception as e:
         import sys
-        print(f"Failed to update YouTube video {video_id}: {e}", file=sys.stderr)
+        print(f"Failed to update YouTube video {video_id}: {e}", file=sys.stderr, flush=True)
+        return {"status": "error", "error": str(e)}
 
 
 def get_my_uploaded_videos():
