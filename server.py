@@ -75,22 +75,23 @@ def _scheduler_loop():
                 _last_checked_date = date_key
 
             for slot, target_time in POST_TIMES.items():
-                # Normalize target_time to 2-digit HH:MM format (e.g. "4:20" -> "04:20")
-                # so single-digit hour strings match datetime.strftime("%H:%M")
+                # Normalize target_time to 2-digit HH:MM format (e.g. "7:00" -> "07:00")
                 try:
                     h, m = target_time.split(":")
                     norm_target = f"{int(h):02d}:{int(m):02d}"
                 except Exception:
                     norm_target = target_time
 
-                if hhmm == norm_target and slot not in _already_triggered_today:
-                    print(f"[{now.isoformat()}] Triggering slot {slot} ({target_time})", flush=True)
+                # Catch-up: if scheduled time has arrived or passed today, and slot wasn't evaluated yet today
+                if norm_target <= hhmm and slot not in _already_triggered_today:
+                    print(f"[{now.isoformat()}] Triggering slot {slot} (scheduled for {target_time}, current time {hhmm})", flush=True)
                     _already_triggered_today.add(slot)
                     try:
                         result = run_slot(slot)
                         print(f"Slot {slot} result: {result}", flush=True)
                     except Exception as e:
                         print(f"Slot {slot} raised an exception: {e}", flush=True)
+                    time.sleep(5)
         except Exception as loop_err:
             # Never let the scheduler thread die silently.
             print(f"Scheduler loop error: {loop_err}", flush=True)
@@ -159,6 +160,33 @@ def manual_reset():
     _already_triggered_today = set()
     result = reset_state()
     return result, 200
+
+
+@app.route("/catchup")
+def manual_catchup():
+    """Manual trigger to catch up on any slots whose scheduled time has passed today."""
+    secret = os.environ.get("RUN_SECRET")
+    from flask import request
+    if secret and request.args.get("key") != secret:
+        abort(403)
+
+    now = datetime.now(TIMEZONE)
+    hhmm = now.strftime("%H:%M")
+    results = {}
+
+    for slot, target_time in POST_TIMES.items():
+        try:
+            h, m = target_time.split(":")
+            norm_target = f"{int(h):02d}:{int(m):02d}"
+        except Exception:
+            norm_target = target_time
+
+        if norm_target <= hhmm:
+            res = run_slot(slot)
+            _already_triggered_today.add(slot)
+            results[f"slot_{slot}_({target_time})"] = res
+
+    return {"status": "catchup_completed", "current_time": hhmm, "results": results}, 200
 
 
 @app.route("/run/<int:slot>")
