@@ -130,6 +130,7 @@ def run_slot(slot: int):
         prev_yt_id = part_history.get(str(prev_part_num))
         if prev_yt_id:
             yt_description = f"{caption}\n\n👈 Watch Part {prev_part_num}: https://youtube.com/watch?v={prev_yt_id}"
+        ig_caption = f"{caption}\n\n👈 Watch Part {prev_part_num}\n\n{hashtags}"
 
     print(f"Slot {slot}: posting '{video_name}' ({video_id})")
 

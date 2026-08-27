@@ -71,7 +71,7 @@ def update_video_description(video_id: str, extra_text: str):
             "snippet": {
                 "title": snippet["title"],
                 "description": new_desc,
-                "categoryId": snippet.get("categoryId", "24"),
+                "categoryId": "24",  # Entertainment
                 "tags": snippet.get("tags", []),
             },
             "status": video_data.get("status", {}),
